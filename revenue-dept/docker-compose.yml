@@ -1,0 +1,45 @@
+# GovConnect - Optional Isolated Docker Deployment
+# NOTE: The primary development setup uses local PostgreSQL on port 5432.
+# Use this docker-compose file ONLY if you wish to run an isolated containerized environment.
+
+version: '3.8'
+
+services:
+  # Isolated PostgreSQL Database (Optional)
+  revenue-db:
+    image: postgres:16-alpine
+    container_name: govconnect-revenue-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: govconnect_revenue
+    ports:
+      - "5433:5432" # Mapped to 5433 to avoid colliding with local Postgres on 5432
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - revenue_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d govconnect_revenue"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Revenue Department API Service
+  revenue-api:
+    build: .
+    container_name: govconnect-revenue-api
+    ports:
+      - "4001:4001"
+    environment:
+      PORT: 4001
+      NODE_ENV: production
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@revenue-db:5432/govconnect_revenue
+      CORS_ORIGIN: "*"
+    depends_on:
+      revenue-db:
+        condition: service_healthy
+    volumes:
+      - ./keys:/app/keys
+
+volumes:
+  revenue_pgdata:

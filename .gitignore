@@ -1,0 +1,57 @@
+# GovConnect — Root Gitignore
+
+# Environment files
+.env
+.env.*
+!.env.example
+!.env.template
+
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+.vite/
+coverage/
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Private keys and certificates
+*.pem
+*.key
+*.p12
+*.pfx
+!**/public_key.pem
+
+# Private key directories
+keys/
+**/keys/
+
+# Database dumps and local database files (init.sql / schema / seed are retained)
+*.dump
+*.sqlite
+*.sqlite3
+*.backup
+*.bak
+*.sql.gz
+
+# Local / runtime / scratch
+*.local
+scratch/
+
+# Credentials
+credentials.json
+service-account*.json
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+

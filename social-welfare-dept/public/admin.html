@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GovConnect — Social Welfare Department (Issuer Console)</title>
+  <link rel="stylesheet" href="/public/admin.css">
+</head>
+<body>
+  <!-- Top Institutional Header -->
+  <header class="gov-header">
+    <div class="header-container">
+      <div class="gov-branding">
+        <!-- Generic Emblem Placeholder (Geometric Shield/Columns) -->
+        <svg class="gov-emblem" viewBox="0 0 48 48" width="44" height="44" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="GovConnect Institutional Emblem">
+          <circle cx="24" cy="24" r="22" stroke="#D9E1E8" stroke-width="2"/>
+          <path d="M24 8L36 14V22C36 30 24 38 24 38C24 38 12 30 12 22V14L24 8Z" fill="#06325A" stroke="#0B4F8A" stroke-width="2"/>
+          <path d="M24 16V29M19 20V27M29 20V27M17 31H31" stroke="#F5F7FA" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <div class="gov-titles">
+          <div class="gov-title-main">GovConnect</div>
+          <div class="gov-title-sub">Social Welfare Department — Issuer Console</div>
+        </div>
+      </div>
+      <div class="header-right">
+        <span class="prototype-badge" id="prototypeBadge">
+          SIH PROTOTYPE — GOVERNMENT OF MAHARASHTRA (SOCIAL WELFARE DEPARTMENT, SIMULATED)
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <!-- 4px Saffron / Green Tricolor Strip -->
+  <div class="gov-tricolor-strip" aria-hidden="true"></div>
+
+  <!-- Sub-Header Status Bar -->
+  <nav class="sub-header-bar" aria-label="System status bar">
+    <div class="container status-bar-content">
+      <div class="status-indicator">
+        <span class="status-dot online" id="statusDot"></span>
+        <span id="serviceStatusText">Service: Connecting to API...</span>
+      </div>
+      <div class="issuer-tag">
+        <span>Issuer ID: <code>social-welfare-dept-maharashtra</code></span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Prototype Advisory Banner -->
+  <div class="prototype-advisory">
+    <div class="container">
+      This is a Smart India Hackathon prototype (Problem Statement SIH26129). Not an official government service.
+    </div>
+  </div>
+
+  <!-- Global Alert Container -->
+  <div class="container" id="alertContainer" role="alert" aria-live="polite"></div>
+
+  <!-- Main Content Layout -->
+  <main class="container main-content">
+
+    <!-- Summary Metrics -->
+    <section class="metrics-grid" aria-label="Summary Statistics">
+      <div class="metric-card">
+        <div class="metric-label">Total Seeded Citizens</div>
+        <div class="metric-value" id="metricTotalCitizens">—</div>
+        <div class="metric-subtext">Registered in Social Welfare records</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Credentials Issued</div>
+        <div class="metric-value" id="metricIssuedCount">—</div>
+        <div class="metric-subtext">Signed with Ed25519</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Issuer Status</div>
+        <div class="metric-value status-active" id="metricIssuerStatus">Active</div>
+        <div class="metric-subtext"><code>social-welfare-dept-maharashtra</code></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-label">Ed25519 Key Status</div>
+        <div class="metric-value status-key" id="metricKeyStatus">Active</div>
+        <div class="metric-subtext">Persistent local key pair</div>
+      </div>
+    </section>
+
+    <!-- Citizens Section -->
+    <section class="content-panel" aria-labelledby="citizensHeading">
+      <div class="panel-header">
+        <div>
+          <h2 id="citizensHeading" class="panel-title">Citizen Caste Registry</h2>
+          <p class="panel-description">Internal department records eligible for Caste Certificate credential issuance.</p>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="btnRefreshCitizens" type="button">Refresh</button>
+      </div>
+
+      <div class="table-responsive">
+        <table class="data-table" id="citizensTable" aria-label="Citizen Registry Table">
+          <thead>
+            <tr>
+              <th scope="col" style="width: 80px;">ID</th>
+              <th scope="col">Applicant Name</th>
+              <th scope="col" style="width: 160px;">Date of Birth</th>
+              <th scope="col" style="width: 220px; text-align: right;">Action</th>
+            </tr>
+          </thead>
+          <tbody id="citizensTableBody">
+            <tr>
+              <td colspan="4" class="text-center text-muted">Loading citizen records...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Issued Credentials Section -->
+    <section class="content-panel" aria-labelledby="issuedHeading">
+      <div class="panel-header">
+        <div>
+          <h2 id="issuedHeading" class="panel-title">Issued Credentials</h2>
+          <p class="panel-description">Digitally signed Caste Certificates persisted in database.</p>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="btnRefreshIssued" type="button">Refresh</button>
+      </div>
+
+      <div class="table-responsive">
+        <table class="data-table" id="issuedTable" aria-label="Issued Credentials Table">
+          <thead>
+            <tr>
+              <th scope="col" style="width: 80px;">ID</th>
+              <th scope="col">Citizen</th>
+              <th scope="col">Credential Type</th>
+              <th scope="col">Issued At</th>
+              <th scope="col" style="width: 120px;">Status</th>
+              <th scope="col" style="width: 140px; text-align: right;">Action</th>
+            </tr>
+          </thead>
+          <tbody id="issuedTableBody">
+            <tr>
+              <td colspan="6" class="text-center text-muted">Loading issued credentials...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Public Key Information Card -->
+    <section class="content-panel" aria-labelledby="keyHeading">
+      <div class="panel-header">
+        <div>
+          <h2 id="keyHeading" class="panel-title">Issuer Public Key & Verifier Interface</h2>
+          <p class="panel-description">Public cryptographic material exposed for independent third-party verification.</p>
+        </div>
+        <button class="btn btn-secondary btn-sm" id="btnCopyPublicKey" type="button">Copy Key</button>
+      </div>
+      <div class="panel-body">
+        <div class="info-callout">
+          <strong>Verifier Notice:</strong> External verifiers (such as the Domicile Certificate Office or GovConnect Wallet) retrieve this public key from <code>GET /public-key</code> to independently verify Ed25519 signatures without connecting to the Social Welfare Department database.
+        </div>
+        <div class="key-display-box">
+          <div class="key-field">
+            <span class="key-title">Issuer Identifier:</span>
+            <code class="key-value">social-welfare-dept-maharashtra</code>
+          </div>
+          <div class="key-field">
+            <span class="key-title">Public Key (Base64 SPKI):</span>
+            <pre class="code-snippet" id="publicKeySnippet">Loading public key...</pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Modal: Citizen Review & Issue Confirmation -->
+  <div class="modal-backdrop" id="reviewModal" role="dialog" aria-modal="true" aria-labelledby="modalCitizenTitle" style="display: none;">
+    <div class="modal-window">
+      <div class="modal-header">
+        <h3 id="modalCitizenTitle" class="modal-title">Review Citizen & Issue Caste Certificate</h3>
+        <button class="modal-close-btn" id="closeReviewModal" aria-label="Close modal">&times;</button>
+      </div>
+      <div class="modal-body" id="modalReviewContent">
+        <div class="text-center text-muted">Loading citizen details...</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="btnCancelIssue" type="button">Cancel</button>
+        <button class="btn btn-primary" id="btnConfirmIssue" type="button">
+          <span id="issueBtnText">Issue and Sign Credential</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Credential Detail View -->
+  <div class="modal-backdrop" id="detailModal" role="dialog" aria-modal="true" aria-labelledby="modalDetailTitle" style="display: none;">
+    <div class="modal-window modal-wide">
+      <div class="modal-header">
+        <h3 id="modalDetailTitle" class="modal-title">Credential Details</h3>
+        <button class="modal-close-btn" id="closeDetailModal" aria-label="Close modal">&times;</button>
+      </div>
+      <div class="modal-body" id="modalDetailContent">
+        <!-- Injected via JS -->
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="btnCloseDetail" type="button">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="gov-footer">
+    <div class="container footer-content">
+      <p>GovConnect Decentralized Credential Framework &bull; Social Welfare Department Issuer Service</p>
+      <p class="footer-note">Simulated for SIH26129 Prototype Demonstration &bull; Government of Maharashtra</p>
+      <p class="footer-disclaimer">This is a Smart India Hackathon prototype (Problem Statement SIH26129). Not an official government service.</p>
+    </div>
+  </footer>
+
+  <script src="/public/admin.js"></script>
+</body>
+</html>

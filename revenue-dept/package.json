@@ -1,0 +1,23 @@
+{
+  "name": "govconnect-revenue-dept",
+  "version": "1.0.0",
+  "description": "GovConnect Revenue Department - Issuer #1 for Income Certificates",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test tests/crypto.test.js tests/api.test.js",
+    "db:init": "node scripts/init-db.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "fast-json-stable-stringify": "^2.1.0",
+    "pg": "^8.13.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "ISC"
+}
