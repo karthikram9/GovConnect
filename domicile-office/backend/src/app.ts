@@ -7,6 +7,7 @@ import verificationRequestsRouter from './routes/verificationRequests.js';
 import presentationsRouter from './routes/presentations.js';
 import applicationsRouter from './routes/applications.js';
 import certificatesRouter from './routes/certificates.js';
+import authRouter from './routes/auth.js';
 
 export function createApp(): Express {
   const app = express();
@@ -32,6 +33,7 @@ export function createApp(): Express {
 
   // 3. Mount Routes
   app.use(healthRouter);
+  app.use('/auth', authRouter);
   app.use('/api/trust-registry', trustRegistryRouter);
   app.use('/api/verification-requests', verificationRequestsRouter);
   app.use('/api/presentations', presentationsRouter);

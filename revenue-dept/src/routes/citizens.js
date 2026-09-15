@@ -2,13 +2,15 @@ const express = require('express');
 const router = express.Router();
 const { query } = require('../db');
 const { formatDate } = require('../credentials/incomeCertificate');
+const { authenticateToken } = require('../middleware/authenticateToken');
+const { requireRole, requireDepartment } = require('../middleware/rbac');
 
 /**
  * Minimal citizens list endpoint
  * GET /citizens
- * Exposes only minimal non-sensitive fields (id, name, dateOfBirth)
+ * Protected: ADMIN + revenue, ISSUER_OFFICER + revenue
  */
-router.get('/citizens', async (req, res) => {
+router.get('/citizens', authenticateToken, requireDepartment('revenue'), requireRole(['ADMIN', 'ISSUER_OFFICER']), async (req, res) => {
   try {
     const result = await query(
       'SELECT id, applicant_name, date_of_birth FROM citizens ORDER BY id ASC'
@@ -30,8 +32,9 @@ router.get('/citizens', async (req, res) => {
 /**
  * Internal citizen detail endpoint for staff review prior to credential issuance
  * GET /citizens/:citizenId
+ * Protected: ADMIN + revenue, ISSUER_OFFICER + revenue
  */
-router.get('/citizens/:citizenId', async (req, res) => {
+router.get('/citizens/:citizenId', authenticateToken, requireDepartment('revenue'), requireRole(['ADMIN', 'ISSUER_OFFICER']), async (req, res) => {
   const citizenId = parseInt(req.params.citizenId, 10);
   if (isNaN(citizenId) || citizenId <= 0) {
     return res.status(400).json({ error: 'Invalid citizen ID. Must be a positive integer.' });

@@ -3,13 +3,15 @@ const router = express.Router();
 const { query } = require('../db');
 const { buildCredential, ISSUER_ID } = require('../credentials/casteCertificate');
 const { signCredential } = require('../crypto/signer');
-const { requireIssuerApiKey } = require('../middleware/auth');
+const { authenticateToken } = require('../middleware/authenticateToken');
+const { requireRole, requireDepartment, requireIssuanceAuth } = require('../middleware/rbac');
 
 /**
  * Issue Caste Certificate for a citizen
  * POST /issue-credential/:citizenId
+ * Dual-Mode: Human Bearer token (ADMIN / ISSUER_OFFICER of social-welfare) OR X-API-Key service auth
  */
-router.post('/issue-credential/:citizenId', requireIssuerApiKey, async (req, res) => {
+router.post('/issue-credential/:citizenId', requireIssuanceAuth('social-welfare'), async (req, res) => {
   const citizenId = parseInt(req.params.citizenId, 10);
 
   // 1. Validate citizen ID
@@ -69,8 +71,9 @@ router.post('/issue-credential/:citizenId', requireIssuerApiKey, async (req, res
 /**
  * Get all issued credentials
  * GET /issued-credentials
+ * Protected: ADMIN or ISSUER_OFFICER of social-welfare
  */
-router.get('/issued-credentials', async (req, res) => {
+router.get('/issued-credentials', authenticateToken, requireDepartment('social-welfare'), requireRole(['ADMIN', 'ISSUER_OFFICER']), async (req, res) => {
   try {
     const result = await query(`
       SELECT 

@@ -316,8 +316,22 @@ describe('GovConnect Step 5 — End-to-End Integration & Demo Validation', () =>
     assert.strictEqual(result.matchingResult.confidence, 'MEDIUM');
     assert.strictEqual(result.issuedCertificate, undefined, 'CRITICAL: No certificate should be automatically issued!');
 
-    // 5. Check applications queue
-    const apps = await (await fetch(`${DOMICILE_URL}/api/applications`)).json();
+    // 5. Check applications queue (Protected by RBAC: authenticate as Domicile Review Officer)
+    const loginRes = await fetch(`${DOMICILE_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: 'dom_officer_01',
+        password: 'Password#2026!'
+      })
+    });
+    assert.strictEqual(loginRes.status, 200);
+    const loginBody = await loginRes.json();
+    const officerToken = loginBody.token;
+
+    const apps = await (await fetch(`${DOMICILE_URL}/api/applications`, {
+      headers: { 'Authorization': `Bearer ${officerToken}` }
+    })).json();
     const app2 = apps.find(a => a.applicationId === 'APP-2026-002');
     assert.strictEqual(app2.status, 'NEEDS_MANUAL_REVIEW');
   });
@@ -326,9 +340,25 @@ describe('GovConnect Step 5 — End-to-End Integration & Demo Validation', () =>
   // 8. Manual Review Adjudication
   // --------------------------------------------------------------------------
   test('8. Officer manual review approves ambiguous application APP-2026-002', async () => {
-    const reviewRes = await fetch(`${DOMICILE_URL}/api/applications/APP-2026-002/review`, {
+    // Authenticate as Domicile Review Officer
+    const loginRes = await fetch(`${DOMICILE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: 'dom_officer_01',
+        password: 'Password#2026!'
+      })
+    });
+    assert.strictEqual(loginRes.status, 200);
+    const loginBody = await loginRes.json();
+    const officerToken = loginBody.token;
+
+    const reviewRes = await fetch(`${DOMICILE_URL}/api/applications/APP-2026-002/review`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${officerToken}`
+      },
       body: JSON.stringify({
         decision: 'APPROVE',
         officerNotes: 'Identity confirmed via supporting affidavit and physical hearing.'

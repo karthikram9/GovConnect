@@ -11,6 +11,9 @@ import {
 import { clearReplayRegistry } from '../src/services/replayService.js';
 import { resetApplicationState, setVerificationRequest, getVerificationRequest } from '../src/services/applicationService.js';
 import { VerifiablePresentation } from '../src/types/index.js';
+import { generateToken } from '../src/auth/token.js';
+
+let domicileReviewOfficerToken: string;
 
 // Ephemeral Department Signing Keys for Realistic Fixture Generation in Tests
 const revenueKeyPair = crypto.generateKeyPairSync('ed25519', {
@@ -176,6 +179,12 @@ describe('GovConnect Domicile Certificate Office — 24 Comprehensive API & Veri
   let originalFetch: typeof global.fetch;
 
   before(async () => {
+    process.env.AUTH_TOKEN_SECRET = 'domicile-test-secret-key-must-be-32bytes-long';
+    domicileReviewOfficerToken = generateToken({
+      sub: 'domicile_reviewer_01',
+      role: 'REVIEW_OFFICER',
+      dept: 'domicile'
+    });
     const app = createApp();
     await new Promise<void>((resolve) => {
       server = http.createServer(app);
@@ -752,7 +761,7 @@ describe('GovConnect Domicile Certificate Office — 24 Comprehensive API & Veri
     assert.ok(result.manualReviewReason.includes("Some credential identity details are similar, but the submitted identity could not be deterministically linked with sufficient confidence."));
   });
 
-  // 22. Manual review approval
+  // 22. Manual review approval with RBAC
   test('22. Manual Review: Officer approves ambiguous application and issues Prototype Domicile Certificate', async () => {
     // Step A: Trigger ambiguity on APP-2026-002
     const presentation = createPresentationEnvelope({
@@ -770,10 +779,54 @@ describe('GovConnect Domicile Certificate Office — 24 Comprehensive API & Veri
       })
     });
 
-    // Step B: Officer reviews and approves
-    const reviewRes = await originalFetch(`${baseUrl}/api/applications/APP-2026-002/review`, {
+    // Step B1: Unauthenticated review attempt must return 401
+    const unauthRes = await originalFetch(`${baseUrl}/api/applications/APP-2026-002/review`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        decision: 'APPROVE',
+        officerNotes: 'Unauthenticated attempt.'
+      })
+    });
+    assert.strictEqual(unauthRes.status, 401);
+
+    // Step B2: Wrong role attempt (ISSUER_OFFICER) must return 403
+    const issuerToken = generateToken({ sub: 'dom_issuer', role: 'ISSUER_OFFICER', dept: 'domicile' });
+    const wrongRoleRes = await originalFetch(`${baseUrl}/api/applications/APP-2026-002/review`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${issuerToken}`
+      },
+      body: JSON.stringify({
+        decision: 'APPROVE',
+        officerNotes: 'Wrong role attempt.'
+      })
+    });
+    assert.strictEqual(wrongRoleRes.status, 403);
+
+    // Step B3: Wrong department attempt (revenue REVIEW_OFFICER) must return 403
+    const wrongDeptToken = generateToken({ sub: 'rev_officer', role: 'REVIEW_OFFICER', dept: 'revenue' });
+    const wrongDeptRes = await originalFetch(`${baseUrl}/api/applications/APP-2026-002/review`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${wrongDeptToken}`
+      },
+      body: JSON.stringify({
+        decision: 'APPROVE',
+        officerNotes: 'Wrong department attempt.'
+      })
+    });
+    assert.strictEqual(wrongDeptRes.status, 403);
+
+    // Step B4: Authorized review officer of domicile approves
+    const reviewRes = await originalFetch(`${baseUrl}/api/applications/APP-2026-002/review`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${domicileReviewOfficerToken}`
+      },
       body: JSON.stringify({
         decision: 'APPROVE',
         officerNotes: 'Verified identity discrepancy in person with applicant affidavit.'
@@ -788,11 +841,46 @@ describe('GovConnect Domicile Certificate Office — 24 Comprehensive API & Veri
     assert.strictEqual(reviewData.certificate.issuanceMode, 'APPROVED_AFTER_MANUAL_REVIEW');
   });
 
-  // 23. Manual review rejection
-  test('23. Manual Review: Officer rejects application with clear audit status', async () => {
-    const reviewRes = await originalFetch(`${baseUrl}/api/applications/APP-2026-002/review`, {
+  // 23. Manual review rejection and Lifecycle State Protection (409 Conflict)
+  test('23. Manual Review: Officer rejects application with clear audit status and lifecycle enforcement', async () => {
+    // Step A: Attempting review on PENDING_CREDENTIALS must return 409 Conflict
+    const earlyReviewRes = await originalFetch(`${baseUrl}/api/applications/APP-2026-002/review`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${domicileReviewOfficerToken}`
+      },
+      body: JSON.stringify({
+        decision: 'REJECT',
+        officerNotes: 'Attempting review on non-NEEDS_MANUAL_REVIEW state.'
+      })
+    });
+    assert.strictEqual(earlyReviewRes.status, 409);
+    const earlyBody = await earlyReviewRes.json() as any;
+    assert.strictEqual(earlyBody.error, 'INVALID_LIFECYCLE_STATE');
+
+    // Step B: Trigger ambiguity to move application to NEEDS_MANUAL_REVIEW
+    const presentation = createPresentationEnvelope({
+      requestId: `req-rev-app-reject-${crypto.randomUUID()}`,
+      nonce: `nonce-rev-app-reject-${crypto.randomUUID()}`
+    });
+    await originalFetch(`${baseUrl}/api/presentations/verify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        presentation,
+        applicationId: 'APP-2026-002',
+        citizenConfirmedOwnership: true
+      })
+    });
+
+    // Step C: Authorized officer rejects application
+    const reviewRes = await originalFetch(`${baseUrl}/api/applications/APP-2026-002/review`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${domicileReviewOfficerToken}`
+      },
       body: JSON.stringify({
         decision: 'REJECT',
         officerNotes: 'Identity could not be established.'
@@ -804,6 +892,22 @@ describe('GovConnect Domicile Certificate Office — 24 Comprehensive API & Veri
     assert.strictEqual(reviewData.success, true);
     assert.strictEqual(reviewData.application.status, 'REJECTED');
     assert.strictEqual(reviewData.certificate, undefined);
+
+    // Step D: Re-reviewing a terminal REJECTED application must return 409 Conflict
+    const terminalReviewRes = await originalFetch(`${baseUrl}/api/applications/APP-2026-002/review`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${domicileReviewOfficerToken}`
+      },
+      body: JSON.stringify({
+        decision: 'APPROVE',
+        officerNotes: 'Attempt to revive terminal state.'
+      })
+    });
+    assert.strictEqual(terminalReviewRes.status, 409);
+    const terminalBody = await terminalReviewRes.json() as any;
+    assert.strictEqual(terminalBody.error, 'INVALID_LIFECYCLE_STATE');
   });
 
   // 24. Prototype certificate issuance structure

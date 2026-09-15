@@ -10,6 +10,7 @@ const healthRoutes = require('./routes/health');
 const publicKeyRoutes = require('./routes/publicKey');
 const citizensRoutes = require('./routes/citizens');
 const credentialsRoutes = require('./routes/credentials');
+const authRoutes = require('./routes/auth');
 
 const app = express();
 const PORT = process.env.PORT || 4002;
@@ -19,7 +20,7 @@ const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';
 app.use(cors({
   origin: CORS_ORIGIN === '*' ? true : CORS_ORIGIN,
   methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key']
 }));
 app.use(express.json());
 
@@ -27,12 +28,16 @@ app.use(express.json());
 const publicDir = path.resolve(__dirname, '../public');
 app.use('/public', express.static(publicDir));
 
-// Admin dashboard route
-app.get('/admin', (req, res) => {
+const { authenticateToken } = require('./middleware/authenticateToken');
+const { requireRole, requireDepartment } = require('./middleware/rbac');
+
+// Admin dashboard route (Protected by RBAC: ADMIN or ISSUER_OFFICER of social-welfare)
+app.get('/admin', authenticateToken, requireDepartment('social-welfare'), requireRole(['ADMIN', 'ISSUER_OFFICER']), (req, res) => {
   res.sendFile(path.join(publicDir, 'admin.html'));
 });
 
 // Mount API routes
+app.use('/auth', authRoutes);
 app.use('/', healthRoutes);
 app.use('/', publicKeyRoutes);
 app.use('/', citizensRoutes);

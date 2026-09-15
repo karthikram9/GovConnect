@@ -4,11 +4,13 @@ const http = require('http');
 const db = require('../src/db');
 const { app } = require('../src/server');
 const { verifyCredential, initKeys } = require('../src/crypto/signer');
+const { generateToken } = require('../src/auth/token');
 
 describe('Revenue Department API Test Suite', () => {
   let server;
   let baseUrl;
   let originalQuery;
+  let revenueOfficerToken;
 
   // In-memory mock store used if live DB is unavailable
   const mockCitizens = [
@@ -44,6 +46,8 @@ describe('Revenue Department API Test Suite', () => {
 
   before(async () => {
     process.env.ISSUER_API_KEY = TEST_API_KEY;
+    process.env.AUTH_TOKEN_SECRET = 'test-token-secret-for-revenue-dept-testing-32bytes';
+    revenueOfficerToken = generateToken({ sub: 'rev_officer_01', role: 'ISSUER_OFFICER', dept: 'revenue' });
     initKeys();
 
     // Check if live DB is connected
@@ -150,8 +154,17 @@ describe('Revenue Department API Test Suite', () => {
     assert.ok(!JSON.stringify(body).toLowerCase().includes('private'), 'Body must never contain private key');
   });
 
-  test('GET /citizens returns seeded citizens with only minimal fields', async () => {
+  test('GET /citizens requires authentication (401 without token)', async () => {
     const res = await fetch(`${baseUrl}/citizens`);
+    assert.strictEqual(res.status, 401);
+  });
+
+  test('GET /citizens returns seeded citizens with only minimal fields when authenticated', async () => {
+    const res = await fetch(`${baseUrl}/citizens`, {
+      headers: {
+        'Authorization': `Bearer ${revenueOfficerToken}`
+      }
+    });
     assert.strictEqual(res.status, 200);
     const citizens = await res.json();
 
@@ -250,8 +263,17 @@ describe('Revenue Department API Test Suite', () => {
     assert.ok(body.error, 'Error message must be present');
   });
 
-  test('GET /issued-credentials returns issued credentials list', async () => {
+  test('GET /issued-credentials requires authentication (401 without token)', async () => {
     const res = await fetch(`${baseUrl}/issued-credentials`);
+    assert.strictEqual(res.status, 401);
+  });
+
+  test('GET /issued-credentials returns issued credentials list when authenticated', async () => {
+    const res = await fetch(`${baseUrl}/issued-credentials`, {
+      headers: {
+        'Authorization': `Bearer ${revenueOfficerToken}`
+      }
+    });
     assert.strictEqual(res.status, 200);
     const list = await res.json();
 
@@ -263,5 +285,18 @@ describe('Revenue Department API Test Suite', () => {
     assert.ok(last.signature, 'Signature should exist');
     assert.ok(last.credential, 'Credential JSON should exist');
     assert.strictEqual(last.issuer, 'revenue-dept-maharashtra');
+  });
+
+  test('POST /issue-credential/:citizenId succeeds with human Bearer token (dual-mode)', async () => {
+    const res = await fetch(`${baseUrl}/issue-credential/2`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${revenueOfficerToken}`
+      }
+    });
+    assert.strictEqual(res.status, 201);
+    const body = await res.json();
+    assert.ok(body.credential);
+    assert.strictEqual(body.credential.subject.name, 'Sunita Devi Sharma');
   });
 });

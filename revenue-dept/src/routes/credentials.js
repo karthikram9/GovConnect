@@ -3,13 +3,17 @@ const router = express.Router();
 const { query } = require('../db');
 const { buildCredential, ISSUER_ID } = require('../credentials/incomeCertificate');
 const { signCredential } = require('../crypto/signer');
-const { requireIssuerApiKey } = require('../middleware/auth');
+const { authenticateToken } = require('../middleware/authenticateToken');
+const { requireIssuanceAuth, requireRole, requireDepartment } = require('../middleware/rbac');
 
 /**
  * Issue Income Certificate for a citizen
  * POST /issue-credential/:citizenId
+ * Supports BOTH:
+ * A) Revenue ISSUER_OFFICER/ADMIN Bearer token
+ * B) Revenue X-API-Key (service authentication)
  */
-router.post('/issue-credential/:citizenId', requireIssuerApiKey, async (req, res) => {
+router.post('/issue-credential/:citizenId', requireIssuanceAuth('revenue'), async (req, res) => {
   const citizenId = parseInt(req.params.citizenId, 10);
 
   // 1. Validate citizen ID
@@ -69,8 +73,9 @@ router.post('/issue-credential/:citizenId', requireIssuerApiKey, async (req, res
 /**
  * Get all issued credentials
  * GET /issued-credentials
+ * Protected: ADMIN + revenue, ISSUER_OFFICER + revenue
  */
-router.get('/issued-credentials', async (req, res) => {
+router.get('/issued-credentials', authenticateToken, requireDepartment('revenue'), requireRole(['ADMIN', 'ISSUER_OFFICER']), async (req, res) => {
   try {
     const result = await query(`
       SELECT 

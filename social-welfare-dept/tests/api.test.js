@@ -4,11 +4,13 @@ const http = require('http');
 const db = require('../src/db');
 const { app } = require('../src/server');
 const { verifyCredential, initKeys } = require('../src/crypto/signer');
+const { generateToken } = require('../src/auth/token');
 
 describe('Social Welfare Dept — API Test Suite', () => {
   let server;
   let baseUrl;
   let useMockDb = false;
+  let socialWelfareOfficerToken;
 
   const mockCitizens = [
     {
@@ -45,6 +47,8 @@ describe('Social Welfare Dept — API Test Suite', () => {
 
   before(async () => {
     process.env.ISSUER_API_KEY = TEST_API_KEY;
+    process.env.AUTH_TOKEN_SECRET = 'test-token-secret-for-social-welfare-testing-32bytes';
+    socialWelfareOfficerToken = generateToken({ sub: 'swd_officer_01', role: 'ISSUER_OFFICER', dept: 'social-welfare' });
     initKeys();
 
     // Check if live PostgreSQL is connected
@@ -150,8 +154,17 @@ describe('Social Welfare Dept — API Test Suite', () => {
     assert.ok(!JSON.stringify(body).toLowerCase().includes('private'), 'Body must never contain private key');
   });
 
-  test('9. GET /citizens returns seeded citizens with only minimal fields (no caste info)', async () => {
+  test('9a. GET /citizens requires authentication (401 without token)', async () => {
     const res = await fetch(`${baseUrl}/citizens`);
+    assert.strictEqual(res.status, 401);
+  });
+
+  test('9b. GET /citizens returns seeded citizens with only minimal fields when authenticated', async () => {
+    const res = await fetch(`${baseUrl}/citizens`, {
+      headers: {
+        'Authorization': `Bearer ${socialWelfareOfficerToken}`
+      }
+    });
     assert.strictEqual(res.status, 200);
     const citizens = await res.json();
 
@@ -172,8 +185,17 @@ describe('Social Welfare Dept — API Test Suite', () => {
     assert.strictEqual(first.certificateNumber, undefined, 'certificateNumber must NOT be exposed');
   });
 
-  test('10. GET /citizens/:citizenId returns staff-level record with caste details', async () => {
+  test('10a. GET /citizens/:citizenId requires authentication (401 without token)', async () => {
     const res = await fetch(`${baseUrl}/citizens/1`);
+    assert.strictEqual(res.status, 401);
+  });
+
+  test('10b. GET /citizens/:citizenId returns staff-level record with caste details when authenticated', async () => {
+    const res = await fetch(`${baseUrl}/citizens/1`, {
+      headers: {
+        'Authorization': `Bearer ${socialWelfareOfficerToken}`
+      }
+    });
     assert.strictEqual(res.status, 200);
     const citizen = await res.json();
 
@@ -265,8 +287,17 @@ describe('Social Welfare Dept — API Test Suite', () => {
     assert.ok(body.error, 'Error message must be present');
   });
 
-  test('14. GET /issued-credentials returns issued credentials list', async () => {
+  test('14a. GET /issued-credentials requires authentication (401 without token)', async () => {
     const res = await fetch(`${baseUrl}/issued-credentials`);
+    assert.strictEqual(res.status, 401);
+  });
+
+  test('14b. GET /issued-credentials returns issued credentials list when authenticated', async () => {
+    const res = await fetch(`${baseUrl}/issued-credentials`, {
+      headers: {
+        'Authorization': `Bearer ${socialWelfareOfficerToken}`
+      }
+    });
     assert.strictEqual(res.status, 200);
     const list = await res.json();
 
@@ -279,5 +310,18 @@ describe('Social Welfare Dept — API Test Suite', () => {
     assert.ok(last.credential, 'Credential JSON should exist');
     assert.strictEqual(last.issuer, 'social-welfare-dept-maharashtra');
     assert.strictEqual(last.credential_type, 'CasteCertificate');
+  });
+
+  test('15. POST /issue-credential/:citizenId succeeds with human Bearer token (dual-mode)', async () => {
+    const res = await fetch(`${baseUrl}/issue-credential/2`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${socialWelfareOfficerToken}`
+      }
+    });
+    assert.strictEqual(res.status, 201);
+    const body = await res.json();
+    assert.ok(body.credential);
+    assert.strictEqual(body.credential.subject.name, 'Sunita Devi Sharma');
   });
 });
