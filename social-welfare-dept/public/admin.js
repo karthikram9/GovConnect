@@ -29,6 +29,107 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnCloseDetail = document.getElementById('btnCloseDetail');
   const modalDetailContent = document.getElementById('modalDetailContent');
 
+  // Officer Profile Elements
+  const officerProfile = document.getElementById('officerProfile');
+  const officerUsername = document.getElementById('officerUsername');
+  const officerRoleBadge = document.getElementById('officerRoleBadge');
+  const btnLogout = document.getElementById('btnLogout');
+
+  // Login Modal Elements
+  const loginModal = document.getElementById('loginModal');
+  const loginForm = document.getElementById('loginForm');
+  const loginUsername = document.getElementById('loginUsername');
+  const loginPassword = document.getElementById('loginPassword');
+  const loginAlert = document.getElementById('loginAlert');
+  const btnLoginSubmit = document.getElementById('btnLoginSubmit');
+
+  const AUTH_TOKEN_KEY = 'govconnect_swd_token';
+  const AUTH_USER_KEY = 'govconnect_swd_user';
+
+  function getStoredToken() {
+    return sessionStorage.getItem(AUTH_TOKEN_KEY);
+  }
+
+  function getStoredUser() {
+    try {
+      return JSON.parse(sessionStorage.getItem(AUTH_USER_KEY));
+    } catch {
+      return null;
+    }
+  }
+
+  function setAuthSession(token, user) {
+    sessionStorage.setItem(AUTH_TOKEN_KEY, token);
+    sessionStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+  }
+
+  function clearAuthSession() {
+    sessionStorage.removeItem(AUTH_TOKEN_KEY);
+    sessionStorage.removeItem(AUTH_USER_KEY);
+  }
+
+  function updateOfficerHeader() {
+    const user = getStoredUser();
+    if (user && officerProfile) {
+      officerUsername.textContent = user.username || 'Officer';
+      officerRoleBadge.textContent = user.role || 'OFFICER';
+      officerProfile.style.display = 'flex';
+    } else if (officerProfile) {
+      officerProfile.style.display = 'none';
+    }
+  }
+
+  function showLoginModal(errorMsg = null) {
+    if (loginModal) {
+      loginModal.style.display = 'flex';
+      if (errorMsg && loginAlert) {
+        loginAlert.textContent = errorMsg;
+        loginAlert.style.display = 'block';
+      } else if (loginAlert) {
+        loginAlert.style.display = 'none';
+      }
+    }
+  }
+
+  function hideLoginModal() {
+    if (loginModal) {
+      loginModal.style.display = 'none';
+    }
+  }
+
+  /**
+   * Authenticated fetch wrapper injecting Bearer token
+   */
+  async function authFetch(url, options = {}) {
+    const token = getStoredToken();
+    if (!token) {
+      showLoginModal('Authentication required. Please sign in.');
+      throw new Error('Authentication required');
+    }
+
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+      ...(options.headers || {})
+    };
+
+    const res = await fetch(url, { ...options, headers });
+
+    if (res.status === 401) {
+      clearAuthSession();
+      updateOfficerHeader();
+      showLoginModal('Session expired or invalid. Please sign in again.');
+      throw new Error('Session expired');
+    }
+
+    if (res.status === 403) {
+      showAlert('Access Denied (HTTP 403 Forbidden): Your account does not have permission for this resource.', 'error');
+      throw new Error('Access denied');
+    }
+
+    return res;
+  }
+
   let activeCitizenIdToIssue = null;
   let cachedPublicKey = '';
 
@@ -88,7 +189,7 @@ document.addEventListener('DOMContentLoaded', () => {
   async function fetchCitizens() {
     citizensTableBody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Loading citizen records...</td></tr>';
     try {
-      const res = await fetch('/citizens');
+      const res = await authFetch('/citizens');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const citizens = await res.json();
 
@@ -125,7 +226,7 @@ document.addEventListener('DOMContentLoaded', () => {
   async function fetchIssuedCredentials() {
     issuedTableBody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Loading issued credentials...</td></tr>';
     try {
-      const res = await fetch('/issued-credentials');
+      const res = await authFetch('/issued-credentials');
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const credentials = await res.json();
 
@@ -173,7 +274,7 @@ document.addEventListener('DOMContentLoaded', () => {
     btnConfirmIssue.disabled = true;
 
     try {
-      const res = await fetch(`/citizens/${citizenId}`);
+      const res = await authFetch(`/citizens/${citizenId}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const c = await res.json();
 
@@ -234,31 +335,13 @@ document.addEventListener('DOMContentLoaded', () => {
     btnConfirmIssue.textContent = 'Signing Credential...';
 
     try {
-      let apiKey = sessionStorage.getItem('issuer_api_key');
-      if (!apiKey) {
-        apiKey = prompt('Admin Authorization Required: Please enter the Issuer API Key:');
-        if (apiKey) {
-          apiKey = apiKey.trim();
-          sessionStorage.setItem('issuer_api_key', apiKey);
-        }
-      }
-
-      const headers = { 'Content-Type': 'application/json' };
-      if (apiKey) {
-        headers['X-API-Key'] = apiKey;
-      }
-
-      const res = await fetch(`/issue-credential/${activeCitizenIdToIssue}`, {
-        method: 'POST',
-        headers
+      const res = await authFetch(`/issue-credential/${activeCitizenIdToIssue}`, {
+        method: 'POST'
       });
 
       const data = await res.json();
 
       if (!res.ok) {
-        if (res.status === 401) {
-          sessionStorage.removeItem('issuer_api_key');
-        }
         throw new Error(data.error || `HTTP ${res.status}`);
       }
 
@@ -369,9 +452,74 @@ document.addEventListener('DOMContentLoaded', () => {
       .replace(/'/g, '&#039;');
   }
 
+  // Login form submit
+  if (loginForm) {
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (loginAlert) loginAlert.style.display = 'none';
+      btnLoginSubmit.disabled = true;
+      btnLoginSubmit.textContent = 'Authenticating…';
+
+      try {
+        const username = loginUsername.value.trim();
+        const password = loginPassword.value;
+
+        const res = await fetch('/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.message || data.error || 'Authentication failed');
+        }
+
+        setAuthSession(data.token, data.user);
+        hideLoginModal();
+        updateOfficerHeader();
+        loginPassword.value = '';
+
+        await fetchCitizens();
+        await fetchIssuedCredentials();
+      } catch (err) {
+        if (loginAlert) {
+          loginAlert.textContent = err.message;
+          loginAlert.style.display = 'block';
+        }
+      } finally {
+        btnLoginSubmit.disabled = false;
+        btnLoginSubmit.textContent = 'Sign In to Console';
+      }
+    });
+  }
+
+  // Sign Out button
+  if (btnLogout) {
+    btnLogout.addEventListener('click', async () => {
+      try {
+        await authFetch('/auth/logout', { method: 'POST' }).catch(() => {});
+      } finally {
+        clearAuthSession();
+        updateOfficerHeader();
+        citizensTableBody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">Please sign in to view citizen records.</td></tr>';
+        issuedTableBody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">Please sign in to view issued credentials.</td></tr>';
+        metricTotalCitizens.textContent = '—';
+        metricIssuedCount.textContent = '—';
+        showLoginModal();
+      }
+    });
+  }
+
   // Initial Load
   fetchHealth();
   fetchPublicKey();
-  fetchCitizens();
-  fetchIssuedCredentials();
+
+  if (getStoredToken()) {
+    updateOfficerHeader();
+    fetchCitizens();
+    fetchIssuedCredentials();
+  } else {
+    showLoginModal();
+  }
 });

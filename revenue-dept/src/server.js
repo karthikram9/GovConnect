@@ -31,8 +31,8 @@ app.use('/public', express.static(publicDir));
 const { authenticateToken } = require('./middleware/authenticateToken');
 const { requireRole, requireDepartment } = require('./middleware/rbac');
 
-// Admin dashboard route (Protected by RBAC: ADMIN or ISSUER_OFFICER of revenue)
-app.get('/admin', authenticateToken, requireDepartment('revenue'), requireRole(['ADMIN', 'ISSUER_OFFICER']), (req, res) => {
+// Admin dashboard route (serves UI shell; data APIs are protected by RBAC)
+app.get('/admin', (req, res) => {
   res.sendFile(path.join(publicDir, 'admin.html'));
 });
 

@@ -22,10 +22,14 @@
           <div class="gov-title-sub">Revenue Department — Issuer Console</div>
         </div>
       </div>
-      <div class="header-right">
+      <div class="header-right" style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap;">
         <span class="prototype-badge" id="prototypeBadge">
           SIH Prototype — Government of Maharashtra (Revenue Department, simulated)
         </span>
+        <div id="officerProfile" style="display: none; align-items: center; gap: 0.6rem; font-size: 0.82rem; background: rgba(255,255,255,0.12); padding: 0.35rem 0.75rem; border-radius: 4px; border: 1px solid rgba(255,255,255,0.2);">
+          <span>👤 <strong id="officerUsername">—</strong> <span class="badge badge-success" id="officerRoleBadge" style="font-size: 0.7rem; margin-left: 0.25rem;">—</span></span>
+          <button type="button" class="btn btn-secondary btn-sm" id="btnLogout" style="padding: 0.2rem 0.5rem; font-size: 0.75rem; background: #243b53; color: #fff; border: 1px solid #486581;">Sign Out</button>
+        </div>
       </div>
     </div>
   </header>
@@ -193,6 +197,41 @@
       <div class="modal-footer">
         <button class="btn btn-secondary" id="btnCloseDetail" type="button">Close</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Modal: Officer Login -->
+  <div class="modal-backdrop" id="loginModal" role="dialog" aria-modal="true" aria-labelledby="modalLoginTitle" style="display: none;">
+    <div class="modal-window" style="max-width: 440px;">
+      <div class="modal-header">
+        <h3 id="modalLoginTitle" class="modal-title">Officer Authentication</h3>
+      </div>
+      <form id="loginForm" autocomplete="off">
+        <div class="modal-body">
+          <div class="info-callout" style="margin-bottom: 1rem;">
+            Authenticate with departmental operator credentials to access the Revenue Issuer Console.
+          </div>
+          <div id="loginAlert" style="display: none; margin-bottom: 1rem;" class="alert-banner alert-danger"></div>
+          <div style="display: flex; flex-direction: column; gap: 0.85rem;">
+            <div>
+              <label for="loginUsername" style="display: block; font-weight: 600; margin-bottom: 0.3rem; font-size: 0.85rem;">Operator Username</label>
+              <input type="text" id="loginUsername" name="username" required class="code-snippet" style="width: 100%; padding: 0.5rem; background: #fff; color: #102a43; border: 1px solid var(--gov-border);" placeholder="e.g. rev_officer_01" />
+            </div>
+            <div>
+              <label for="loginPassword" style="display: block; font-weight: 600; margin-bottom: 0.3rem; font-size: 0.85rem;">Password</label>
+              <input type="password" id="loginPassword" name="password" required class="code-snippet" style="width: 100%; padding: 0.5rem; background: #fff; color: #102a43; border: 1px solid var(--gov-border);" placeholder="Enter password" />
+            </div>
+            <div style="font-size: 0.78rem; color: var(--gov-text-muted); line-height: 1.4; background: #f8fafc; padding: 0.5rem; border-radius: 4px; border: 1px solid var(--gov-border-subtle);">
+              <strong>Prototype Dev Accounts:</strong><br />
+              &bull; Issuer Officer: <code>rev_officer_01</code> / <code>Password#2026!</code><br />
+              &bull; Administrator: <code>rev_admin_01</code> / <code>AdminPassword#2026!</code>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary" id="btnLoginSubmit" style="width: 100%;">Sign In to Console</button>
+        </div>
+      </form>
     </div>
   </div>
 

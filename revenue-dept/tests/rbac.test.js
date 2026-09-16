@@ -159,22 +159,22 @@ describe('Revenue Department — RBAC & Adversarial Boundary Tests', () => {
     assert.strictEqual(resPub.status, 200);
   });
 
-  test('5. GET /admin requires authentication (401 without Bearer token)', async () => {
+  test('5. GET /admin delivers the institutional admin HTML shell (200 OK)', async () => {
     const res = await fetch(`${baseUrl}/admin`);
+    assert.strictEqual(res.status, 200);
+    const text = await res.text();
+    assert.ok(text.includes('GovConnect'));
+  });
+
+  test('6. GET /citizens requires authentication (401 without Bearer token)', async () => {
+    const res = await fetch(`${baseUrl}/citizens`);
     assert.strictEqual(res.status, 401);
-  });
-
-  test('6. GET /admin rejects user from another department with 403 Forbidden', async () => {
-    const res = await fetch(`${baseUrl}/admin`, {
-      headers: { 'Authorization': `Bearer ${socialWelfareAdminToken}` }
-    });
-    assert.strictEqual(res.status, 403);
     const body = await res.json();
-    assert.strictEqual(body.error, 'FORBIDDEN');
+    assert.strictEqual(body.error, 'UNAUTHORIZED');
   });
 
-  test('7. GET /admin rejects user with unauthorized role (e.g. REVIEW_OFFICER) with 403 Forbidden', async () => {
-    const res = await fetch(`${baseUrl}/admin`, {
+  test('7. GET /citizens rejects user with unauthorized role (e.g. REVIEW_OFFICER) with 403 Forbidden', async () => {
+    const res = await fetch(`${baseUrl}/citizens`, {
       headers: { 'Authorization': `Bearer ${revenueReviewerToken}` }
     });
     assert.strictEqual(res.status, 403);
@@ -182,13 +182,13 @@ describe('Revenue Department — RBAC & Adversarial Boundary Tests', () => {
     assert.strictEqual(body.error, 'FORBIDDEN');
   });
 
-  test('8. GET /admin allows authorized Revenue ADMIN and ISSUER_OFFICER (200 OK)', async () => {
-    const resAdmin = await fetch(`${baseUrl}/admin`, {
+  test('8. GET /citizens allows authorized Revenue ADMIN and ISSUER_OFFICER (200 OK)', async () => {
+    const resAdmin = await fetch(`${baseUrl}/citizens`, {
       headers: { 'Authorization': `Bearer ${revenueAdminToken}` }
     });
     assert.strictEqual(resAdmin.status, 200);
 
-    const resIssuer = await fetch(`${baseUrl}/admin`, {
+    const resIssuer = await fetch(`${baseUrl}/citizens`, {
       headers: { 'Authorization': `Bearer ${revenueIssuerToken}` }
     });
     assert.strictEqual(resIssuer.status, 200);
@@ -247,13 +247,8 @@ describe('Revenue Department — RBAC & Adversarial Boundary Tests', () => {
     assert.strictEqual(body.issuer, 'revenue-dept-maharashtra');
   });
 
-  test('15. Service X-API-Key CANNOT access /admin, /citizens, or /issued-credentials (401 Unauthorized)', async () => {
+  test('15. Service X-API-Key CANNOT access /citizens or /issued-credentials (401 Unauthorized)', async () => {
     // Proves privilege separation: Machine API Key is strictly limited to POST /issue-credential
-    const resAdmin = await fetch(`${baseUrl}/admin`, {
-      headers: { 'X-API-Key': TEST_API_KEY }
-    });
-    assert.strictEqual(resAdmin.status, 401);
-
     const resCitizens = await fetch(`${baseUrl}/citizens`, {
       headers: { 'X-API-Key': TEST_API_KEY }
     });
